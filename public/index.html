@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>고래상사 미니 대시보드</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px;
+    background: #0a0c11; color: #e8eaed;
+    font-family: -apple-system, "Pretendard", "Malgun Gothic", sans-serif;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #9aa0a6; font-size: 13px; margin-bottom: 20px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: #14161c; border: 1px solid #22252e; border-radius: 14px;
+    padding: 16px; transition: border-color 0.2s;
+  }
+  .card.live { border-color: #ff4d4f55; }
+  .card.offline { opacity: 0.55; }
+  .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .name { font-size: 16px; font-weight: 700; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; margin-right: 6px; }
+  .dot.live { background: #ff4d4f; box-shadow: 0 0 6px #ff4d4f; }
+  .title { color: #9aa0a6; font-size: 12px; margin-bottom: 12px; min-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stats-row { display: flex; gap: 16px; margin-bottom: 10px; }
+  .stat .label { color: #62666f; font-size: 11px; }
+  .stat .value { font-size: 18px; font-weight: 700; }
+  .donation-mini {
+    font-size: 12px; background: #1c1f27; border-radius: 8px; padding: 6px 8px;
+    display: flex; justify-content: space-between; margin-top: 4px;
+  }
+  .donation-mini .amt { color: #ffd54f; font-weight: 600; }
+  .empty-note { color: #62666f; font-size: 11px; margin-top: 8px; }
+  .summary { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; color: #9aa0a6; }
+  .summary b { color: #e8eaed; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐋 고래상사 미니 대시보드</h1>
+  <div class="sub">등록된 멤버들의 실시간 방송 상태 / 채팅 접속자 / 오늘 별풍선</div>
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+async function refresh() {
+  try {
+    const res = await fetch('/api/stats');
+    const members = await res.json();
+
+    const liveCount = members.filter(m => m.isOnline).length;
+    document.getElementById('summary').innerHTML =
+      `전체 <b>${members.length}</b>명 · 방송 중 <b>${liveCount}</b>명`;
+
+    const grid = document.getElementById('grid');
+    grid.innerHTML = members.map(m => {
+      const cardClass = m.isOnline ? 'card live' : 'card offline';
+      const donations = (m.recentDonations || []).slice(0, 3).map(d => `
+        <div class="donation-mini">
+          <span>${escapeHtml(d.fromUsername || '익명')} · ${d.kind}</span>
+          <span class="amt">${d.amount.toLocaleString()}개</span>
+        </div>
+      `).join('');
+
+      return `
+        <div class="${cardClass}">
+          <div class="card-top">
+            <span class="name"><span class="dot ${m.isOnline ? 'live' : ''}"></span>${escapeHtml(m.displayName)}</span>
+          </div>
+          <div class="title">${m.isOnline ? escapeHtml(m.title || '') : (m.lastError ? '⚠ ' + escapeHtml(m.lastError) : '오프라인')}</div>
+          <div class="stats-row">
+            <div class="stat">
+              <div class="label">채팅 접속자</div>
+              <div class="value">${m.isOnline ? m.chatViewerCount.toLocaleString() : '-'}</div>
+            </div>
+            <div class="stat">
+              <div class="label">오늘 별풍선</div>
+              <div class="value">${m.todayBalloonTotal.toLocaleString()}개</div>
+            </div>
+            <div class="stat">
+              <div class="label">오늘 채팅</div>
+              <div class="value">${m.chatMessageCount.toLocaleString()}</div>
+            </div>
+          </div>
+          ${donations || '<div class="empty-note">최근 후원 없음</div>'}
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    document.getElementById('grid').innerHTML = `<div class="empty-note">서버 응답 없음: ${e.message}</div>`;
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
