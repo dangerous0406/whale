@@ -62,8 +62,14 @@ async function refresh() {
     document.getElementById('summary').innerHTML =
       `전체 <b>${members.length}</b>명 · 방송 중 <b>${liveCount}</b>명`;
 
+    // 방송 중인 멤버를 위로, 나머지는 원래 순서 유지
+    const sorted = [...members].sort((a, b) => {
+      if (a.isOnline === b.isOnline) return 0;
+      return a.isOnline ? -1 : 1;
+    });
+
     const grid = document.getElementById('grid');
-    grid.innerHTML = members.map(m => {
+    grid.innerHTML = sorted.map(m => {
       const cardClass = m.isOnline ? 'card live' : 'card offline';
       const donations = (m.recentDonations || []).slice(0, 3).map(d => `
         <div class="donation-mini">
